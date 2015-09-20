@@ -2,16 +2,18 @@
 #include <SPI.h>
 #include <GD2.h>
 
+// pw-dos asset
+#include "default_assets.h"
+
 // note that due to rotation, width and height are actually inverted!
 // (names are preserved to make expected parameters less confusing)
-static uint16_t width = 168;
+static uint16_t width = PW_DOS_HEIGHT;
 // clipped slightly from 144 due to 272px width
-static uint16_t height = 136; //144;
+static uint16_t height = PW_DOS_WIDTH - 8;
 
 void setup() {
   GD.begin();
-  GD.cmd_loadimage(0, 0);
-  GD.load("pw-dos.jpg");
+  LOAD_ASSETS();
 }
 
 void loop() {
