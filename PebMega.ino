@@ -26,6 +26,11 @@ static uint16_t width = PW_DOS_HEIGHT;
 // clipped slightly from 144 due to 272px width
 static uint16_t height = PW_DOS_WIDTH - 8;
 
+static byte red = 0;
+static byte green = 0;
+static byte blue = 0;
+
+
 void setup() {
   
   // set up software serial connection to Pebble
@@ -65,6 +70,14 @@ static void prv_handle_led_request(RequestType type, size_t length) {
   digitalWrite(LED_BUILTIN, (bool) buffer[0]);
   */
   
+  
+  // up = increase background redness, down = blueness
+  if ((bool) buffer[0]) {
+    red += 16;
+  } else {
+    blue += 16;    
+  }
+  
   // ACK that the write request was received
   ArduinoPebbleSerial::write(true, NULL, 0);
   //Serial.print//Serial.print("digitalWrite():");
@@ -74,7 +87,7 @@ static void prv_handle_led_request(RequestType type, size_t length) {
 
 void loop() {
   // background: Pebble GColorDarkCandyAppleRed
-  GD.ClearColorRGB(0xAA0000);
+  GD.ClearColorRGB(red, green, blue);
   GD.Clear();
   
   // transparency off
