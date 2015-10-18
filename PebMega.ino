@@ -30,6 +30,11 @@ static byte red = 0;
 static byte green = 0;
 static byte blue = 0;
 
+static char message[31];
+static uint16_t options = 0; //OPT_FLAT;
+static byte prevkey;
+static byte messageLength = 0;
+
 
 void setup() {
   
@@ -38,6 +43,7 @@ void setup() {
   ArduinoPebbleSerial::begin_software(PEBBLE_DATA_PIN, buffer, sizeof(buffer), Baud57600, SERVICES,
                                       NUM_SERVICES);
   
+  //memset(message, 7, 30);
   GD.begin();
   LOAD_ASSETS();
 }
@@ -86,6 +92,32 @@ static void prv_handle_led_request(RequestType type, size_t length) {
 }
 
 void loop() {
+  
+  GD.get_inputs();
+
+  byte key = GD.inputs.tag;
+  if (prevkey == 0x00) {
+    if ((' ' <= key) && (key < 0x7f)) {
+      //memmove(message, message + 1, 29);
+      if (messageLength <= 29) {
+        message[messageLength] = key;
+        message[messageLength + 1] = 0;
+        messageLength++;
+      }
+    } else if (key == 8) {
+      // backspace
+      if (messageLength >= 1) {
+        message[messageLength - 1] = 0;        
+        messageLength -= 1;
+      }
+    } else if (key == 13) {
+      // enter      
+      message[0] = 0;        
+      messageLength = 0;
+    }
+  }
+  prevkey = key;
+  
   // background: Pebble GColorDarkCandyAppleRed
   GD.ClearColorRGB(red, green, blue);
   GD.Clear();
@@ -95,12 +127,57 @@ void loop() {
 
   // rotate and scale 2x
   GD.Begin(BITMAPS);
+  
   // this is intentionally width for both parameters in order to rotate 
   // around center of "square"
-  rotate_and_scale(DEGREES(270), width / 2, width / 2, F16(2.0));
+  //rotate_and_scale(DEGREES(270), width / 2, width / 2, F16(2.0));
   GD.cmd_setmatrix();
   // TODO: auto-center (vs. hard-coded based on known size/scale)
-  GD.Vertex2ii((480 / 2) - ((width * 2) / 2), (272 / 2) - ((height * 2) / 2));
+  //GD.Vertex2ii((480 / 2) - ((width * 2) / 2), (272 / 2) - ((height * 2) / 2));
+  GD.Vertex2ii(10, 10);
+
+  // transparency on
+  GD.BlendFunc(SRC_ALPHA, ONE);
+
+  // KB background
+  GD.ColorRGB(0xdecbaa);
+
+  GD.LineWidth(4 * 16);
+  GD.Begin(RECTS);
+
+  GD.Vertex2ii(10 + 144 + 10, 136 + 8);
+  GD.Vertex2ii(472, 136 + 128);
+  
+  // set widget (keyboard) colors
+  GD.ColorRGB(0x291d15);
+  GD.cmd_fgcolor(0xd4c4a3);
+  GD.cmd_bgcolor(0x9d8d6e);
+  
+  GD.cmd_keys(144, 168,      320, 24, 28, options | OPT_CENTER | key, "QWERTYUIOP"); //qwertyuiop
+  GD.cmd_keys(144, 168 + 26, 320, 24, 28, options | OPT_CENTER | key,   "ASDFGHJKL"); //asdfghjkl
+  GD.cmd_keys(144, 168 + 52, 320, 24, 28, options | OPT_CENTER | key,   "ZXCVBNM,."); //zxcvbnm
+  GD.Tag(' ');
+  GD.cmd_button(308 - 60, 172 + 74, 120, 20, 28, options,   "");
+
+  // backspace
+  GD.Tag(8);
+  GD.cmd_button(144 + 320 - 45, 168, 50, 24, 28, options,   "Bksp");
+  // enter
+  GD.Tag(13);
+  GD.cmd_button(144 + 320 - 55, 168 + 26, 60, 24, 28, options,   "Enter");
+
+  GD.BlendFunc(SRC_ALPHA, ZERO);
+
+  // message output background
+  GD.LineWidth(1 * 16);
+  GD.Begin(RECTS);  
+  GD.ColorRGB(0x0);
+  GD.Vertex2ii(10 + 144 + 10 + 28, 136 + 8);
+  GD.Vertex2ii(10 + 144 + 10 + 28 + 242, 136 + 8 + 18);
+
+  GD.ColorRGB(0x56ff00);
+  GD.cmd_text(10 + 144 + 10 + 30, 146, 18, 0, message);
+  
   GD.swap();
  
    if (ArduinoPebbleSerial::is_connected()) {
