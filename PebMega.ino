@@ -14,10 +14,13 @@ static const size_t LED_ATTRIBUTE_LENGTH = 1;
 static const uint16_t UPTIME_ATTRIBUTE_ID = 0x0002;
 static const size_t UPTIME_ATTRIBUTE_LENGTH = 4;
 
+static const uint16_t BUFFER_ATTRIBUTE_ID = 0x0003;
+static const size_t BUFFER_ATTRIBUTE_LENGTH = 31;
+
 static const uint16_t SERVICES[] = {SERVICE_ID};
 static const uint8_t NUM_SERVICES = 1;
 
-static uint8_t buffer[20];
+static uint8_t buffer[42]; // 1+4+31 + 6 (internal)
 
 
 // note that due to rotation, width and height are actually inverted!
@@ -89,6 +92,15 @@ static void prv_handle_led_request(RequestType type, size_t length) {
   //Serial.print//Serial.print("digitalWrite():");
   //Serial.println((bool) buffer[0]);
   //Serial.println("write(true, NULL, 0)");
+}
+
+static void prv_handle_buffer_request(RequestType type, size_t length) {
+  if (type != RequestTypeRead) {
+    // unexpected request type
+    return;
+  }
+  // write back the message
+  ArduinoPebbleSerial::write(true, (uint8_t *)&message, sizeof(message));
 }
 
 void loop() {
@@ -185,7 +197,8 @@ void loop() {
     static uint32_t last_notify_time = 0;
     const uint32_t current_time = millis() / 1000;
     if (current_time > last_notify_time) {
-      ArduinoPebbleSerial::notify(SERVICE_ID, UPTIME_ATTRIBUTE_ID);
+      //ArduinoPebbleSerial::notify(SERVICE_ID, UPTIME_ATTRIBUTE_ID);
+      ArduinoPebbleSerial::notify(SERVICE_ID, BUFFER_ATTRIBUTE_ID);
       //Serial.println("notify()");
       last_notify_time = current_time;
     }
@@ -211,6 +224,10 @@ void loop() {
         case LED_ATTRIBUTE_ID:
           //Serial.println("LED_ATTRIBUTE_ID");
           prv_handle_led_request(type, length);
+          break;
+        case BUFFER_ATTRIBUTE_ID:
+          //Serial.println("BUFFER_ATTRIBUTE_ID");
+          prv_handle_buffer_request(type, length);
           break;
         default:
           //Serial.println("unknown attribute_id");
