@@ -1,6 +1,7 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <GD2.h>
+#include <TimeLib.h>
 
 #include <ArduinoPebbleSerial.h>
 
@@ -16,6 +17,9 @@ static const size_t UPTIME_ATTRIBUTE_LENGTH = 4;
 
 static const uint16_t BUFFER_ATTRIBUTE_ID = 0x0003;
 static const size_t BUFFER_ATTRIBUTE_LENGTH = 31;
+
+static const uint16_t TIME_ATTRIBUTE_ID = 0x0004;
+static const size_t TIME_ATTRIBUTE_LENGTH = 1;
 
 static const uint16_t SERVICES[] = {SERVICE_ID};
 static const uint8_t NUM_SERVICES = 1;
@@ -38,6 +42,8 @@ static uint16_t options = 0; //OPT_FLAT;
 static byte prevkey;
 static byte messageLength = 0;
 
+static uint32_t time = 0;
+
 
 void setup() {
   
@@ -49,6 +55,9 @@ void setup() {
   //memset(message, 7, 30);
   GD.begin();
   LOAD_ASSETS();
+  
+  // this is not the right time, but to give us something to work with prior to Pebble comms...
+  setTime(0, 0, 0, 6, 11, 1991); // MS-DOS 5.0 release date!
 }
 
 static void prv_handle_uptime_request(RequestType type, size_t length) {
@@ -101,6 +110,29 @@ static void prv_handle_buffer_request(RequestType type, size_t length) {
   }
   // write back the message
   ArduinoPebbleSerial::write(true, (uint8_t *)&message, sizeof(message));
+}
+
+static void prv_handle_time_request(RequestType type, size_t length) {
+  if (type != RequestTypeWrite) {
+    // unexpected request type
+    //Serial.print("unexpected RequestType");
+    return;
+  } else if (length != TIME_ATTRIBUTE_LENGTH) {
+    // unexpected request length
+    //Serial.print("unexpected length");
+    return;
+  }
+  
+  // will this work? concerns include byte order, endian-ness...?
+  time = ((uint32_t) buffer[0]);
+  // TODO: actually set time based on value!
+  //time = *(uint32_t *)buffer;
+  
+  // ACK that the write request was received
+  ArduinoPebbleSerial::write(true, NULL, 0);
+  //Serial.print//Serial.print("digitalWrite():");
+  //Serial.println((bool) buffer[0]);
+  //Serial.println("write(true, NULL, 0)");
 }
 
 void loop() {
@@ -177,9 +209,17 @@ void loop() {
   // enter
   GD.Tag(13);
   GD.cmd_button(144 + 320 - 55, 168 + 26, 60, 24, 28, options,   "Enter");
-
+  
   GD.BlendFunc(SRC_ALPHA, ZERO);
 
+  // clock
+  GD.cmd_clock(50, 225, 40, options, hour(), minute(), second(), 0);
+  
+  // max 4-byte int is 4294967295 = 10 chars + \0
+  char timeBuffer [11];
+  sprintf(timeBuffer, "%i", time);
+  GD.cmd_text(10 + 144 + 10 + 30, 116, 18, 0, timeBuffer);
+  
   // message output background
   GD.LineWidth(1 * 16);
   GD.Begin(RECTS);  
@@ -228,6 +268,10 @@ void loop() {
         case BUFFER_ATTRIBUTE_ID:
           //Serial.println("BUFFER_ATTRIBUTE_ID");
           prv_handle_buffer_request(type, length);
+          break;
+        case TIME_ATTRIBUTE_ID:
+          //Serial.println("BUFFER_ATTRIBUTE_ID");
+          prv_handle_time_request(type, length);
           break;
         default:
           //Serial.println("unknown attribute_id");
