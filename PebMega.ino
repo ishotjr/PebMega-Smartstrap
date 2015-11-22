@@ -19,7 +19,7 @@ static const uint16_t BUFFER_ATTRIBUTE_ID = 0x0003;
 static const size_t BUFFER_ATTRIBUTE_LENGTH = 31;
 
 static const uint16_t TIME_ATTRIBUTE_ID = 0x0004;
-static const size_t TIME_ATTRIBUTE_LENGTH = 1;
+static const size_t TIME_ATTRIBUTE_LENGTH = 4;
 
 static const uint16_t SERVICES[] = {SERVICE_ID};
 static const uint8_t NUM_SERVICES = 1;
@@ -123,10 +123,33 @@ static void prv_handle_time_request(RequestType type, size_t length) {
     return;
   }
   
-  // will this work? concerns include byte order, endian-ness...?
-  time = ((uint32_t) buffer[0]);
-  // TODO: actually set time based on value!
+
+  // this does NOT work - appears to be just two lowest bytes 
+  // (shifting upper prior to making space with cast maybe?)
   //time = *(uint32_t *)buffer;
+
+  // these also do not work - two highest bits shift to oblivion
+  // little-endian:
+  //time = buffer[0] + (buffer[1] << 8) + (buffer[2] << 16) + (buffer[3] << 24);
+  // (FYI) big-endian:
+  //time = (buffer[0] << 24) + (buffer[1] << 16) + (buffer[2] << 8) + buffer[3];
+  
+  // first, we have to give them space to shift
+  uint32_t b0 = buffer[0];
+  uint32_t b1 = buffer[1];
+  uint32_t b2 = buffer[2];
+  uint32_t b3 = buffer[3];
+
+  // NOW we can shift them
+  b1 = b1 << 8;
+  b2 = b2 << 16;
+  b3 = b3 << 24;
+  
+  time = b0 + b1 + b2 + b3;
+
+  // set Arduino time to value passed from Pebble
+  setTime(time);
+
   
   // ACK that the write request was received
   ArduinoPebbleSerial::write(true, NULL, 0);
@@ -217,7 +240,7 @@ void loop() {
   
   // max 4-byte int is 4294967295 = 10 chars + \0
   char timeBuffer [11];
-  sprintf(timeBuffer, "%i", time);
+  sprintf(timeBuffer, "%lu", time);
   GD.cmd_text(10 + 144 + 10 + 30, 116, 18, 0, timeBuffer);
   
   // message output background
