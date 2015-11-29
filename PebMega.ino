@@ -258,7 +258,9 @@ void loop() {
    if (ArduinoPebbleSerial::is_connected()) {
     //Serial.println("IS_connected()");
     static uint32_t last_notify_time = 0;
-    const uint32_t current_time = millis() / 1000;
+    //const uint32_t current_time = millis() / 1000;
+    // increase resolution; 1s is too slow for typing!
+    const uint32_t current_time = millis() / 500; // faster fails!
     if (current_time > last_notify_time) {
       //ArduinoPebbleSerial::notify(SERVICE_ID, UPTIME_ATTRIBUTE_ID);
       ArduinoPebbleSerial::notify(SERVICE_ID, BUFFER_ATTRIBUTE_ID);
